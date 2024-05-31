@@ -1,8 +1,8 @@
 install: install-deps
 	npx simple-git-hooks
 
-run:
-	node src/gendiff.js -h
+gendiff:
+	node bin/gendiff
 
 install-deps:
 	npm ci --legacy-peer-deps
