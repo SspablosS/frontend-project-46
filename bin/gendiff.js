@@ -10,6 +10,27 @@ const parseJsonFile = (filePath) => {
   return JSON.parse(fileData);
 };
 
+const genDiff = (data1, data2) => {
+  const keys = Array.from(
+    new Set([...Object.keys(data1), ...Object.keys(data2)])
+  ).sort();
+
+  const result = keys.map((key) => {
+    if (!(key in data2)) {
+      return `  - ${key}: ${data1[key]}`;
+    }
+    if (!(key in data1)) {
+      return `  + ${key}: ${data2[key]}`;
+    }
+    if (data1[key] !== data2[key]) {
+      return `  - ${key}: ${data1[key]}\n  + ${key}: ${data2[key]}`;
+    }
+    return `    ${key}: ${data1[key]}`;
+  });
+
+  return `{\n${result.join('\n')}\n}`;
+};
+
 program
   .version('1.0.0')
   .arguments('<filepath1> <filepath2>')
@@ -18,7 +39,7 @@ program
   .action((filepath1, filepath2) => {
     const data1 = parseJsonFile(filepath1);
     const data2 = parseJsonFile(filepath2);
-    console.log('File 1 data:', data1);
-    console.log('File 2 data:', data2);
+    const diff = genDiff(data1, data2);
+    console.log(diff);
   })
   .parse(process.argv);
