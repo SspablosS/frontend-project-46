@@ -1,6 +1,3 @@
-#!/usr/bin/env node
-
-import { program } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import _ from 'lodash';
@@ -11,10 +8,8 @@ const parseJsonFile = (filePath) => {
   return JSON.parse(fileData);
 };
 
-const genDiff = (data1, data2) => {
-  const keys = _.sortBy(
-    Array.from(new Set([...Object.keys(data1), ...Object.keys(data2)]))
-  );
+export const genDiff = (data1, data2) => {
+  const keys = _.sortBy(Array.from(new Set([...Object.keys(data1), ...Object.keys(data2)])));
 
   const result = keys.map((key) => {
     if (!(key in data2)) {
@@ -32,15 +27,4 @@ const genDiff = (data1, data2) => {
   return `{\n${result.join('\n')}\n}`;
 };
 
-program
-  .version('1.0.0')
-  .arguments('<filepath1> <filepath2>')
-  .description('Compares two configuration files and shows a difference.')
-  .option('-f, --format [type]', 'output format')
-  .action((filepath1, filepath2) => {
-    const data1 = parseJsonFile(filepath1);
-    const data2 = parseJsonFile(filepath2);
-    const diff = genDiff(data1, data2);
-    console.log(diff);
-  })
-  .parse(process.argv);
+export default parseJsonFile;
