@@ -3,6 +3,7 @@
 import { program } from 'commander';
 import fs from 'fs';
 import path from 'path';
+import _ from 'lodash';
 
 const parseJsonFile = (filePath) => {
   const absolutePath = path.resolve(filePath);
@@ -11,9 +12,9 @@ const parseJsonFile = (filePath) => {
 };
 
 const genDiff = (data1, data2) => {
-  const keys = Array.from(
-    new Set([...Object.keys(data1), ...Object.keys(data2)])
-  ).sort();
+  const keys = _.sortBy(
+    Array.from(new Set([...Object.keys(data1), ...Object.keys(data2)]))
+  );
 
   const result = keys.map((key) => {
     if (!(key in data2)) {
