@@ -3,7 +3,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { genDiff } from '../src/gendiff.js';
+import parseJsonFile, { genDiff } from '../src/gendiff';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,4 +67,23 @@ test('genDiff with a mix of changes', () => {
   const data2 = { key2: 'value2', key3: 'value4', key4: 'value5' };
   const expected = '{\n  - key1: value1\n    key2: value2\n  - key3: value3\n  + key3: value4\n  + key4: value5\n}';
   expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('parseJsonFile with valid JSON', () => {
+  const filePath = path.resolve(__dirname, '../valid.json');
+  const expectedData = { key1: 'value1', key2: 'value2' };
+
+  fs.writeFileSync(filePath, JSON.stringify(expectedData));
+  const parsedData = parseJsonFile(filePath);
+  fs.unlinkSync(filePath);
+
+  expect(parsedData).toEqual(expectedData);
+});
+
+test('parseJsonFile with invalid JSON', () => {
+  const filePath = path.resolve(__dirname, '../invalid.json');
+  fs.writeFileSync(filePath, '{ key1: "value1", key2: "value2"');
+
+  expect(() => parseJsonFile(filePath)).toThrow(SyntaxError);
+  fs.unlinkSync(filePath);
 });
