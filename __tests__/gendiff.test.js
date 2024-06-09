@@ -26,3 +26,45 @@ test('genDiff with flat JSON files', () => {
 
   expect(genDiff(data1, data2)).toBe(expectedOutput);
 });
+
+test('genDiff with two empty objects', () => {
+  const data1 = {};
+  const data2 = {};
+  const expected = '{\n\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('genDiff with added keys', () => {
+  const data1 = {};
+  const data2 = { key1: 'value1', key2: 'value2' };
+  const expected = '{\n  + key1: value1\n  + key2: value2\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('genDiff with removed keys', () => {
+  const data1 = { key1: 'value1', key2: 'value2' };
+  const data2 = {};
+  const expected = '{\n  - key1: value1\n  - key2: value2\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('genDiff with modified keys', () => {
+  const data1 = { key1: 'value1', key2: 'value2' };
+  const data2 = { key1: 'value1', key2: 'value3' };
+  const expected = '{\n    key1: value1\n  - key2: value2\n  + key2: value3\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('genDiff with unchanged keys', () => {
+  const data1 = { key1: 'value1', key2: 'value2' };
+  const data2 = { key1: 'value1', key2: 'value2' };
+  const expected = '{\n    key1: value1\n    key2: value2\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
+
+test('genDiff with a mix of changes', () => {
+  const data1 = { key1: 'value1', key2: 'value2', key3: 'value3' };
+  const data2 = { key2: 'value2', key3: 'value4', key4: 'value5' };
+  const expected = '{\n  - key1: value1\n    key2: value2\n  - key3: value3\n  + key3: value4\n  + key4: value5\n}';
+  expect(genDiff(data1, data2)).toBe(expected);
+});
