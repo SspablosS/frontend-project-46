@@ -3,19 +3,33 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import parseJsonFile, { genDiff } from '../src/gendiff';
+import yaml from 'js-yaml';
+import genDiff from '../src/gendiff';
+import parseFile from '../src/parsers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-test('genDiff with flat JSON files', () => {
-  const filePath1 = path.resolve(__dirname, '../file1.json');
-  const filePath2 = path.resolve(__dirname, '../file2.json');
+const getFixturePath = (filename) => path.join(__dirname, '..', '__fixtures__', filename);
+const readFile = (filename) => fs.readFileSync(getFixturePath(filename), 'utf-8');
 
-  const data1 = JSON.parse(fs.readFileSync(filePath1, 'utf-8'));
-  const data2 = JSON.parse(fs.readFileSync(filePath2, 'utf-8'));
+const dataTypes = [
+  {
+    ext: 'json', parse: JSON.parse, validContent: { key1: 'value1', key2: 'value2' }, invalidContent: '{ key1: "value1", key2: "value2"',
+  },
+  {
+    ext: 'yaml', parse: yaml.load, validContent: { key1: 'value1', key2: 'value2' }, invalidContent: 'key1 value1\nkey2: value2',
+  },
+];
 
-  const expectedOutput = `{
+dataTypes.forEach(({
+  ext, parse, validContent, invalidContent,
+}) => {
+  test(`genDiff with flat ${ext.toUpperCase()} files`, () => {
+    const data1 = parse(readFile(`file1.${ext}`));
+    const data2 = parse(readFile(`file2.${ext}`));
+
+    const expectedOutput = `{
   - follow: false
     host: hexlet.io
   - proxy: 123.234.53.22
@@ -24,66 +38,120 @@ test('genDiff with flat JSON files', () => {
   + verbose: true
 }`;
 
-  expect(genDiff(data1, data2)).toBe(expectedOutput);
+    expect(genDiff(data1, data2)).toBe(expectedOutput);
+  });
+
+  test(`parseFile with valid ${ext.toUpperCase()}`, () => {
+    const filePath = getFixturePath(`valid.${ext}`);
+    fs.writeFileSync(filePath, ext === 'json' ? JSON.stringify(validContent) : yaml.dump(validContent));
+
+    const parsedData = parseFile(filePath);
+    expect(parsedData).toEqual(validContent);
+
+    fs.unlinkSync(filePath);
+  });
+
+  test(`parseFile with invalid ${ext.toUpperCase()}`, () => {
+    const filePath = getFixturePath(`invalid.${ext}`);
+    fs.writeFileSync(filePath, invalidContent);
+
+    if (ext === 'json') {
+      expect(() => parseFile(filePath)).toThrow(SyntaxError);
+    } else if (ext === 'yaml') {
+      expect(() => parseFile(filePath)).toThrowError(/expected/);
+    }
+
+    fs.unlinkSync(filePath);
+  });
 });
 
-test('genDiff with two empty objects', () => {
-  const data1 = {};
-  const data2 = {};
-  const expected = '{\n\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
+const testCases = [
+  {
+    name: 'with two empty objects (JSON)',
+    data1: {},
+    data2: {},
+    expected: '{\n\n}',
+  },
+  {
+    name: 'with added keys (JSON)',
+    data1: {},
+    data2: { key1: 'value1', key2: 'value2' },
+    expected: '{\n  + key1: value1\n  + key2: value2\n}',
+  },
+  {
+    name: 'with removed keys (JSON)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: {},
+    expected: '{\n  - key1: value1\n  - key2: value2\n}',
+  },
+  {
+    name: 'with modified keys (JSON)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: { key1: 'value1', key2: 'value3' },
+    expected: '{\n    key1: value1\n  - key2: value2\n  + key2: value3\n}',
+  },
+  {
+    name: 'with unchanged keys (JSON)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: { key1: 'value1', key2: 'value2' },
+    expected: '{\n    key1: value1\n    key2: value2\n}',
+  },
+  {
+    name: 'with a mix of changes (JSON)',
+    data1: { key1: 'value1', key2: 'value2', key3: 'value3' },
+    data2: { key2: 'value2', key3: 'value4', key4: 'value5' },
+    expected: '{\n  - key1: value1\n    key2: value2\n  - key3: value3\n  + key3: value4\n  + key4: value5\n}',
+  },
 
-test('genDiff with added keys', () => {
-  const data1 = {};
-  const data2 = { key1: 'value1', key2: 'value2' };
-  const expected = '{\n  + key1: value1\n  + key2: value2\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
+  {
+    name: 'with two empty objects (YAML)',
+    data1: {},
+    data2: {},
+    expected: '{\n\n}',
+    isYAML: true,
+  },
+  {
+    name: 'with added keys (YAML)',
+    data1: {},
+    data2: { key1: 'value1', key2: 'value2' },
+    expected: '{\n  + key1: value1\n  + key2: value2\n}',
+    isYAML: true,
+  },
+  {
+    name: 'with removed keys (YAML)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: {},
+    expected: '{\n  - key1: value1\n  - key2: value2\n}',
+    isYAML: true,
+  },
+  {
+    name: 'with modified keys (YAML)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: { key1: 'value1', key2: 'value3' },
+    expected: '{\n    key1: value1\n  - key2: value2\n  + key2: value3\n}',
+    isYAML: true,
+  },
+  {
+    name: 'with unchanged keys (YAML)',
+    data1: { key1: 'value1', key2: 'value2' },
+    data2: { key1: 'value1', key2: 'value2' },
+    expected: '{\n    key1: value1\n    key2: value2\n}',
+    isYAML: true,
+  },
+  {
+    name: 'with a mix of changes (YAML)',
+    data1: { key1: 'value1', key2: 'value2', key3: 'value3' },
+    data2: { key2: 'value2', key3: 'value4', key4: 'value5' },
+    expected: '{\n  - key1: value1\n    key2: value2\n  - key3: value3\n  + key3: value4\n  + key4: value5\n}',
+    isYAML: true,
+  },
+];
 
-test('genDiff with removed keys', () => {
-  const data1 = { key1: 'value1', key2: 'value2' };
-  const data2 = {};
-  const expected = '{\n  - key1: value1\n  - key2: value2\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
-
-test('genDiff with modified keys', () => {
-  const data1 = { key1: 'value1', key2: 'value2' };
-  const data2 = { key1: 'value1', key2: 'value3' };
-  const expected = '{\n    key1: value1\n  - key2: value2\n  + key2: value3\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
-
-test('genDiff with unchanged keys', () => {
-  const data1 = { key1: 'value1', key2: 'value2' };
-  const data2 = { key1: 'value1', key2: 'value2' };
-  const expected = '{\n    key1: value1\n    key2: value2\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
-
-test('genDiff with a mix of changes', () => {
-  const data1 = { key1: 'value1', key2: 'value2', key3: 'value3' };
-  const data2 = { key2: 'value2', key3: 'value4', key4: 'value5' };
-  const expected = '{\n  - key1: value1\n    key2: value2\n  - key3: value3\n  + key3: value4\n  + key4: value5\n}';
-  expect(genDiff(data1, data2)).toBe(expected);
-});
-
-test('parseJsonFile with valid JSON', () => {
-  const filePath = path.resolve(__dirname, '../valid.json');
-  const expectedData = { key1: 'value1', key2: 'value2' };
-
-  fs.writeFileSync(filePath, JSON.stringify(expectedData));
-  const parsedData = parseJsonFile(filePath);
-  fs.unlinkSync(filePath);
-
-  expect(parsedData).toEqual(expectedData);
-});
-
-test('parseJsonFile with invalid JSON', () => {
-  const filePath = path.resolve(__dirname, '../invalid.json');
-  fs.writeFileSync(filePath, '{ key1: "value1", key2: "value2"');
-
-  expect(() => parseJsonFile(filePath)).toThrow(SyntaxError);
-  fs.unlinkSync(filePath);
+testCases.forEach(({
+  name, data1, data2, expected, isYAML,
+}) => {
+  const ext = isYAML ? 'yaml' : 'json';
+  test(`genDiff ${name} (${ext.toUpperCase()})`, () => {
+    expect(genDiff(data1, data2)).toBe(expected);
+  });
 });
