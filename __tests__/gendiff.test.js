@@ -63,6 +63,15 @@ dataTypes.forEach(({
 
     fs.unlinkSync(filePath);
   });
+
+  test('throws error on unsupported file format', () => {
+    const filePath = getFixturePath('unsupported.txt');
+    fs.writeFileSync(filePath, 'some text');
+
+    expect(() => parseFile(filePath)).toThrowError(`Unsupported file format: ${path.extname(filePath)}`);
+
+    fs.unlinkSync(filePath);
+  });
 });
 
 const testCases = [
